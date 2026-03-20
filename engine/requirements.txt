@@ -1,0 +1,46 @@
+# 文枢AI 核心引擎
+# 包含：知识图谱引擎、剧情管控引擎、文风复刻引擎、合规检测引擎
+
+# 核心框架
+fastapi>=0.109.0
+uvicorn>=0.27.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# 数据库
+neo4j>=5.15.0
+pymilvus>=2.3.0
+redis>=5.0.0
+sqlalchemy>=2.0.0
+pymysql>=1.1.0
+
+# AI/ML
+openai>=1.8.0
+tiktoken>=0.5.0
+transformers>=4.36.0
+torch>=2.1.0
+peft>=0.7.0  # LoRA微调
+sentence-transformers>=2.2.0
+
+# NLP
+jieba>=0.42.1
+pkuseg>=0.0.25
+hanlp>=2.1.0
+spacy>=3.7.0
+
+# 向量处理
+numpy>=1.26.0
+scipy>=1.11.0
+faiss-cpu>=1.7.4
+
+# 工具库
+httpx>=0.26.0
+tenacity>=8.2.0
+loguru>=0.7.0
+orjson>=3.9.0
+python-jose>=3.3.0
+passlib>=1.7.4
+
+# 测试
+pytest>=7.4.0
+pytest-asyncio>=0.23.0

@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2021",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@/*": ["src/*"],
+      "@auth/*": ["src/auth/*"],
+      "@users/*": ["src/users/*"],
+      "@works/*": ["src/works/*"],
+      "@chapters/*": ["src/chapters/*"],
+      "@knowledge-graph/*": ["src/knowledge-graph/*"],
+      "@plot-engine/*": ["src/plot-engine/*"],
+      "@ai-generation/*": ["src/ai-generation/*"],
+      "@style-engine/*": ["src/style-engine/*"],
+      "@compliance/*": ["src/compliance/*"],
+      "@copyright/*": ["src/copyright/*"],
+      "@platform/*": ["src/platform/*"],
+      "@membership/*": ["src/membership/*"],
+      "@studio/*": ["src/studio/*"],
+      "@common/*": ["src/common/*"]
+    }
+  }
+}
