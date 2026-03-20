@@ -136,6 +136,12 @@ export class Foreshadowing {
   @Column({ name: 'expected_recall_chapter', nullable: true })
   expectedRecallChapter: number;
 
+  @Column({ name: 'actual_recall_chapter', nullable: true })
+  actualRecallChapter: number;
+
+  @Column({ type: 'text', nullable: true })
+  recallContent: string;
+
   @Column({ default: 'planted' })
   status: string;
 

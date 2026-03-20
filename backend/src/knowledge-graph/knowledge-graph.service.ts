@@ -109,9 +109,9 @@ export class KnowledgeGraphService {
 
   async recallForeshadowing(id: string, chapterNumber: number, content: string): Promise<Foreshadowing> {
     await this.foreshadowingRepository.update(id, {
-      status: 'recalled',
-      actualRecallChapter: chapterNumber,
-      recallContent: content,
+      status: 'recalled' as any,
+      actualRecallChapter: chapterNumber as any,
+      recallContent: content as any,
     });
     return this.foreshadowingRepository.findOne({ where: { id } });
   }
@@ -121,7 +121,7 @@ export class KnowledgeGraphService {
   /**
    * 校验内容是否与知识图谱冲突
    */
-  async validateConsistency(workId: string, content: string): Promise<{
+  async validateConsistency(workId: string, content: string, chapterNumber: number = 0): Promise<{
     isValid: boolean;
     conflicts: Array<{
       type: string;

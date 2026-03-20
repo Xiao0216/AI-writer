@@ -64,7 +64,7 @@ export class PlotEngineService {
         description: volume.description,
         volumeNumber: volume.number,
         nodeOrder: order++,
-        type: 'required',
+        type: 'required' as any,
       });
       nodes.push(volumeNode);
     }
