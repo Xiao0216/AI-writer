@@ -1,0 +1,35 @@
+{
+  "name": "ai-writer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WenShu AI monorepo",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\"",
+    "dev:test": "concurrently \"npm run dev:test:web\" \"npm run dev:test:api\"",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:api": "npm --prefix apps/api run start:dev",
+    "dev:test:web": "dotenv -e apps/web/.env.test -- npm --prefix apps/web run dev -- --hostname 0.0.0.0 --port 3000",
+    "dev:test:api": "dotenv -e apps/api/.env.test -- npm --prefix apps/api run start:dev",
+    "db:test:create": "/opt/homebrew/opt/postgresql@16/bin/psql -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'wenshu_ai_test'\" | grep -q 1 || /opt/homebrew/opt/postgresql@16/bin/createdb wenshu_ai_test",
+    "db:test:generate": "dotenv -e apps/api/.env.test -- npm --prefix apps/api run prisma:generate",
+    "db:test:migrate": "dotenv -e apps/api/.env.test -- npx prisma migrate deploy --schema apps/api/prisma/schema.prisma",
+    "db:test:setup": "npm run db:test:create && npm run db:test:generate && npm run db:test:migrate",
+    "build": "npm run build:web && npm run build:api",
+    "build:web": "npm --prefix apps/web run build",
+    "build:api": "npm --prefix apps/api run build",
+    "lint": "npm run lint:web && npm run lint:api",
+    "lint:web": "npm --prefix apps/web run lint",
+    "lint:api": "npm --prefix apps/api run lint",
+    "test": "npm run test:web && npm run test:api",
+    "test:web": "npm --prefix apps/web run test",
+    "test:api": "npm --prefix apps/api run test",
+    "format": "npm --prefix apps/api run format"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "dotenv-cli": "11.0.0"
+  }
+}

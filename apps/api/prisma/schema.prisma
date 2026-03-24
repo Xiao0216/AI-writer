@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipType {
+  FREE
+  MEMBER
+}
+
+enum PaymentChannel {
+  WECHAT_NATIVE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CLOSED
+  FAILED
+  REFUNDED
+}
+
+enum GenerationType {
+  OUTLINE
+  OPENING
+  CONTINUATION
+  EXPAND
+  SHORTEN
+  REWRITE
+  INSPIRATION
+}
+
+enum ChapterStatus {
+  DRAFT
+  COMPLETED
+}
+
+enum NovelDocumentType {
+  PROJECT_OVERVIEW
+  THEME_AND_PROPOSITION
+  WORLDBUILDING
+  CAST_BIBLE
+  RELATIONSHIP_MAP
+  MAIN_PLOTLINES
+  FORESHADOW_LEDGER
+  CHAPTER_ROADMAP
+  DYNAMIC_STATE
+  STYLE_GUIDE
+  WRITING_LOG
+}
+
+model User {
+  id                  String          @id @default(cuid())
+  nickname            String
+  avatar              String?
+  wechatOpenid        String          @unique
+  phone               String?
+  preferredGenre      String?
+  membershipType      MembershipType  @default(FREE)
+  membershipExpireAt  DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  novels              Novel[]
+  generationLogs      GenerationLog[]
+  paymentOrders       PaymentOrder[]
+}
+
+model Novel {
+  id               String          @id @default(cuid())
+  userId           String
+  title            String
+  genre            String
+  synopsis         String?
+  targetWordCount  Int?
+  totalWordCount   Int             @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapters         Chapter[]
+  characters       Character[]
+  outlines         Outline[]
+  documents        NovelDocument[]
+  generationLogs   GenerationLog[]
+
+  @@index([userId, updatedAt])
+}
+
+model Chapter {
+  id          String    @id @default(cuid())
+  novelId     String
+  title       String
+  content     String    @default("")
+  plainText   String    @default("")
+  wordCount   Int       @default(0)
+  status      ChapterStatus @default(DRAFT)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  novel       Novel     @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  generationLogs GenerationLog[]
+
+  @@index([novelId, sortOrder])
+}
+
+model NovelDocument {
+  id          String            @id @default(cuid())
+  novelId     String
+  type        NovelDocumentType
+  title       String
+  content     String            @default("")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  novel       Novel             @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@unique([novelId, type])
+  @@index([novelId, updatedAt])
+}
+
+model Character {
+  id            String    @id @default(cuid())
+  novelId       String
+  name          String
+  identity      String?
+  personality   String?
+  appearance    String?
+  background    String?
+  extraSettings Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  novel         Novel     @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@index([novelId, name])
+}
+
+model Outline {
+  id          String    @id @default(cuid())
+  novelId     String
+  title       String?
+  content     String
+  version     Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  novel       Novel     @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@unique([novelId, version])
+  @@index([novelId, createdAt])
+}
+
+model GenerationLog {
+  id         String         @id @default(cuid())
+  userId     String
+  novelId    String?
+  chapterId  String?
+  type       GenerationType
+  prompt     String
+  result     String
+  model      String
+  createdAt  DateTime       @default(now())
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel      Novel?         @relation(fields: [novelId], references: [id], onDelete: SetNull)
+  chapter    Chapter?       @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([novelId, createdAt])
+}
+
+model PaymentOrder {
+  id               String         @id @default(cuid())
+  userId           String
+  planCode         String
+  description      String
+  channel          PaymentChannel @default(WECHAT_NATIVE)
+  amountFen        Int
+  currency         String         @default("CNY")
+  status           PaymentStatus  @default(PENDING)
+  outTradeNo       String         @unique
+  codeUrl          String?
+  providerOrderId  String?
+  providerPayload  Json?
+  paidAt           DateTime?
+  expireAt         DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}

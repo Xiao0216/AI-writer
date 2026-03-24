@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Read(//Users/ze/Desktop/**)",
+      "Bash(npx create-next-app@latest ai-writer --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(mv /Users/ze/Desktop/AI-writer/项目介绍书.txt /tmp/)"
+    ]
+  }
+}
