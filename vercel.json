@@ -3,6 +3,7 @@
   "framework": null,
   "installCommand": "npm install && npm --prefix apps/api install",
   "buildCommand": "echo API project uses serverless bundling",
+  "outputDirectory": "public",
   "functions": {
     "api/index.ts": {
       "memory": 1024,
