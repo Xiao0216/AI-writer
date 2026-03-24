@@ -73,6 +73,8 @@ type DecryptedNotifyPayload = {
   success_time?: string;
 };
 
+type ProviderJson = Prisma.InputJsonValue;
+
 const MEMBER_MONTH_PLAN_CODE = 'MEMBER_MONTH';
 
 @Injectable()
@@ -132,7 +134,7 @@ export class PaymentsService {
           where: { id: order.id },
           data: {
             codeUrl: nativeOrder.code_url,
-            providerPayload: nativeOrder as Prisma.InputJsonValue,
+            providerPayload: nativeOrder as ProviderJson,
           },
         }),
       );
@@ -197,7 +199,7 @@ export class PaymentsService {
       order.id,
       payload.transaction_id,
       payload.success_time,
-      payload as Prisma.InputJsonValue,
+      payload as ProviderJson,
     );
 
     return { code: 'SUCCESS', message: '成功' };
@@ -219,7 +221,7 @@ export class PaymentsService {
           order.id,
           response.transaction_id,
           response.success_time,
-          response as Prisma.InputJsonValue,
+          response as ProviderJson,
         );
       }
 
@@ -230,7 +232,7 @@ export class PaymentsService {
           data: {
             status: mappedStatus,
             providerOrderId: response.transaction_id,
-            providerPayload: response as Prisma.InputJsonValue,
+            providerPayload: response as ProviderJson,
           },
         });
       }
@@ -268,7 +270,7 @@ export class PaymentsService {
     orderId: string,
     providerOrderId?: string,
     successTime?: string,
-    providerPayload?: Prisma.InputJsonValue,
+    providerPayload?: ProviderJson,
   ): Promise<PaymentOrder> {
     return this.prisma.$transaction(async (tx) => {
       const currentOrder = await tx.paymentOrder.findUniqueOrThrow({
@@ -435,14 +437,14 @@ export class PaymentsService {
     };
   }
 
-  private serializeProviderError(error: unknown): Prisma.InputJsonValue {
+  private serializeProviderError(error: unknown): ProviderJson {
     if (isAxiosError(error)) {
       return {
         message: error.message,
         status: error.response?.status ?? null,
         data:
           typeof error.response?.data === 'object'
-            ? (error.response.data as Prisma.InputJsonValue)
+            ? (error.response.data as ProviderJson)
             : String(error.response?.data ?? ''),
       };
     }
