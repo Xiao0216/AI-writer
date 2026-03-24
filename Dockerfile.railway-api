@@ -9,6 +9,8 @@ RUN npm install && npm --prefix apps/api install
 
 COPY . .
 
+RUN npm --prefix apps/api run prisma:generate
+
 RUN npm --prefix apps/api run build
 
 EXPOSE 3001
