@@ -1,21 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm --prefix apps/web run build",
   "framework": null,
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/apps/web/$1"
-    }
-  ],
   "functions": {
     "api/index.ts": {
       "memory": 1024,
       "maxDuration": 10
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.ts"
+    }
+  ]
 }

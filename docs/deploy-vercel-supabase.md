@@ -2,8 +2,8 @@
 
 ## 目标
 
-- 前端部署到 Vercel
-- API 通过 Vercel Serverless 入口提供
+- 前端部署到 Vercel（独立 Web 项目）
+- API 部署到 Vercel（独立 API 项目）
 - PostgreSQL 使用 Supabase 托管数据库
 
 ## GitHub 准备
@@ -25,6 +25,20 @@
 
 ## Vercel 准备
 
+推荐使用两个独立项目：
+
+### Project A：`wenshu-api`
+
+- 根目录：仓库根目录
+- 作用：部署 Nest API 的 Vercel Serverless 入口
+- 配置文件：根目录 [vercel.json](/Users/ze/Desktop/AI-writer/vercel.json)
+
+### Project B：`wenshu-web`
+
+- 根目录：`apps/web`
+- 作用：部署 Next.js 前端
+- 使用 Next.js 默认构建
+
 需要在 Vercel 中配置：
 
 - `DATABASE_URL`
@@ -45,11 +59,11 @@
 ## 推荐公网结构
 
 - 前端域名：`https://your-web.vercel.app`
-- API 路径：`https://your-web.vercel.app/api/...`
+- API 域名：`https://your-api.vercel.app`
 
 此时前端建议配置：
 
-- `NEXT_PUBLIC_API_URL=https://your-web.vercel.app/api`
+- `NEXT_PUBLIC_API_URL=https://your-api.vercel.app`
 
 后端建议配置：
 
@@ -59,7 +73,7 @@
 
 1. 访问首页
 2. 访问 `/dashboard`
-3. 访问 `/api/health`
+3. 访问 API 域名下的 `/health`
 4. 测试开发环境快捷登录
 5. 创建项目
 6. 打开启动访谈页
