@@ -25,6 +25,9 @@
 
 - [railway.json](/Users/ze/Desktop/AI-writer/railway.json)
 - [nixpacks.toml](/Users/ze/Desktop/AI-writer/nixpacks.toml)
+- [Dockerfile.railway-api](/Users/ze/Desktop/AI-writer/Dockerfile.railway-api)
+
+当前推荐 Railway 直接按 Dockerfile 部署 API，避免在 monorepo 根目录下由 Railpack 自动猜测构建方式。
 
 ### API 环境变量
 

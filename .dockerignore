@@ -1,0 +1,13 @@
+.git
+.github
+.vercel
+apps/web/.next
+apps/web/test-results
+apps/web/node_modules
+apps/api/node_modules
+node_modules
+npm-debug.log
+docs
+infra
+*.local
+*.log
