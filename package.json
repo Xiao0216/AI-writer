@@ -30,6 +30,7 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "dotenv-cli": "11.0.0"
+    "dotenv-cli": "11.0.0",
+    "vercel": "50.35.0"
   }
 }

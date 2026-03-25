@@ -16,3 +16,4 @@ apps/*/.turbo
 apps/*/prisma/dev.db
 apps/*/prisma/dev.db-journal
 *.log
+.vercel
