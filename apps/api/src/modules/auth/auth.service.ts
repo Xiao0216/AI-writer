@@ -208,6 +208,11 @@ export class AuthService {
     preferredGenre?: string | null;
     membershipExpireAt?: string | null;
   }): Promise<string> {
-    return this.jwtService.signAsync(payload, { expiresIn: '7d' });
+    const secret = this.configService.get<string>('JWT_SECRET')?.trim() || 'change-me';
+
+    return this.jwtService.signAsync(payload, {
+      expiresIn: '7d',
+      secret,
+    });
   }
 }
