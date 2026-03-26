@@ -37,7 +37,7 @@ export default function LoginPage() {
           先控住整本书。
         </h1>
         <p className="mt-6 max-w-2xl text-base leading-8 text-[var(--ink-soft)] lg:text-lg">
-          文枢AI 不是普通生成器。登录后，你进入的是长篇小说控制站：项目真相文件、章节控制卡、动态写回和连续性提醒都在一个工作面里运转。
+          文枢AI 不是普通生成器。登录后，你进入的是长篇小说控制站：作品资料、章节控制卡、动态写回和连续性提醒都在一个工作面里运转。
         </p>
         <div className="mt-8 rounded-[1.8rem] border border-[rgba(48,35,24,0.12)] bg-[rgba(255,252,247,0.76)] p-5 text-sm leading-7 text-[var(--ink-soft)]">
           <p className="font-medium text-stone-950">当前登录入口</p>

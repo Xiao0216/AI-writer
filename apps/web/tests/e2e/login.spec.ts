@@ -2,9 +2,11 @@ import { test, expect } from "@playwright/test";
 
 test("home and login flow renders correctly", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("用 AI，写好每一本小说。")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "不是帮你写一段， 是帮你把整本书控住。" }),
+  ).toBeVisible();
 
-  await page.getByRole("link", { name: "立即进入创作台" }).click();
+  await page.getByRole("link", { name: "进入控制站" }).click();
   await expect(page).toHaveURL(/\/login$/);
 
   const wechatButton = page.getByRole("link", { name: "使用微信扫码登录" });

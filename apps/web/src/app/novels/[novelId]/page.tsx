@@ -1,46 +1,66 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BookOpenText,
-  FileText,
+  FilePenLine,
+  LibraryBig,
+  Orbit,
   Plus,
-  Radar,
-  ScrollText,
+  Save,
   Sparkles,
-  Users,
+  TimerReset,
+  WandSparkles,
 } from "lucide-react";
 
 import { OutlinePanel } from "@/components/ai/outline-panel";
 import { ChapterList } from "@/components/chapter/chapter-list";
-import { CharacterCard } from "@/components/character/character-card";
+import {
+  BulletMetric,
+  SectionHeading,
+  StationPanel,
+  StatusBadge,
+} from "@/components/control-station/station-kit";
 import { ExportButton } from "@/components/export/export-button";
 import { api } from "@/lib/api";
+import {
+  buildCharacterPressure,
+  buildForeshadowWindows,
+  formatStationTime,
+  getStageLabel,
+  getTruthCompletion,
+  summarizeDocument,
+  truthFileMetaMap,
+} from "@/lib/control-station";
 import type { NovelDetail, NovelDocument } from "@/lib/types";
 
 export default function NovelDetailPage() {
   const params = useParams<{ novelId: string }>();
+  const router = useRouter();
   const [novel, setNovel] = useState<NovelDetail | null>(null);
   const [activeDocumentId, setActiveDocumentId] = useState("");
   const [documentDraft, setDocumentDraft] = useState("");
   const [documentMessage, setDocumentMessage] = useState("");
-  const [chapterTitle, setChapterTitle] = useState("第一章");
+  const [chapterTitle, setChapterTitle] = useState("第1章");
   const [outlineDraft, setOutlineDraft] = useState("");
+  const [chapterMessage, setChapterMessage] = useState("");
 
   useEffect(() => {
     let active = true;
 
     void (async () => {
       const result = await api.getNovel(params.novelId);
-      if (active) {
-        setNovel(result);
-        if (result.documents[0]) {
-          setActiveDocumentId(result.documents[0].id);
-          setDocumentDraft(result.documents[0].content);
-        }
+      if (!active) {
+        return;
+      }
+
+      setNovel(result);
+      if (result.documents[0]) {
+        setActiveDocumentId(result.documents[0].id);
+        setDocumentDraft(result.documents[0].content);
       }
     })();
 
@@ -50,313 +70,499 @@ export default function NovelDetailPage() {
   }, [params.novelId]);
 
   if (!novel) {
-    return <div className="text-sm text-stone-600">正在加载作品...</div>;
+    return <div className="text-sm text-[var(--foreground)]/72">正在加载项目控制室...</div>;
   }
 
-  const chapterCount = novel.chapters.length;
-  const outlineCount = novel.outlines.length;
-  const characterCount = novel.characters.length;
   const truthFiles = novel.documents;
-  const activeDocument = truthFiles.find((file) => file.id === activeDocumentId) ?? truthFiles[0] ?? null;
-  const formatTime = (value: string) =>
-    new Date(value).toLocaleString("zh-CN", { hour12: false });
-  const completionRatio = `${truthFiles.filter((file) => file.content.trim().length > 0).length}/${truthFiles.length}`;
-  const documentStatus = (content: string) =>
-    content.trim().length > 0 ? "已填写" : "待补齐";
+  const activeDocument =
+    truthFiles.find((file) => file.id === activeDocumentId) ?? truthFiles[0] ?? null;
+  const truthCompletion = getTruthCompletion(truthFiles);
+  const characterPressure = buildCharacterPressure(novel);
+  const foreshadowWindows = buildForeshadowWindows(novel);
+  const stageLabel = getStageLabel(novel.stage);
+  const filledTruthFiles = truthFiles.filter((file) => file.content.trim()).length;
+  const syncDiffCount = truthFiles.filter((file) => !file.content.trim() && truthFileMetaMap[file.type].priority !== "support").length;
+  const activeEntityCount = novel.characters.length + novel.outlines.length + novel.chapters.length;
+  const stabilityScore = Math.min(
+    97,
+    Math.round(
+      truthCompletion * 0.72 +
+        Math.min(18, (novel.completedChapterCount ?? 0) * 5) +
+        Math.min(8, novel.characters.length * 2),
+    ),
+  );
+  const archiveGroups = [
+    {
+      title: "项目核心",
+      english: "CORE DATA",
+      files: truthFiles.filter((file) =>
+        ["PROJECT_OVERVIEW", "THEME_AND_PROPOSITION", "MAIN_PLOTLINES", "CHAPTER_ROADMAP"].includes(file.type),
+      ),
+    },
+    {
+      title: "人物关系",
+      english: "PERSONA NETWORK",
+      files: truthFiles.filter((file) =>
+        ["CAST_BIBLE", "RELATIONSHIP_MAP", "DYNAMIC_STATE", "FORESHADOW_LEDGER"].includes(file.type),
+      ),
+    },
+    {
+      title: "世界设定与动态风格",
+      english: "WORLD & ATMOSPHERE",
+      files: truthFiles.filter((file) =>
+        ["WORLDBUILDING", "STYLE_GUIDE", "WRITING_LOG"].includes(file.type),
+      ),
+    },
+  ];
 
-  const documentCode = (type: NovelDocument["type"]) =>
-    ({
-      PROJECT_OVERVIEW: "00",
-      THEME_AND_PROPOSITION: "01",
-      WORLDBUILDING: "02",
-      CAST_BIBLE: "03",
-      RELATIONSHIP_MAP: "04",
-      MAIN_PLOTLINES: "05",
-      FORESHADOW_LEDGER: "06",
-      CHAPTER_ROADMAP: "07",
-      DYNAMIC_STATE: "08",
-      STYLE_GUIDE: "09",
-      WRITING_LOG: "LOG",
-    })[type];
+  const saveDocument = async () => {
+    if (!activeDocument) {
+      return;
+    }
+
+    await api.updateNovelDocument(novel.id, activeDocument.id, {
+      content: documentDraft,
+    });
+    const nextNovel = await api.getNovel(params.novelId);
+    setNovel(nextNovel);
+    setDocumentMessage(`${activeDocument.title} 已写入作品资料。`);
+  };
+
+  const documentStatus = (file: NovelDocument) => (file.content.trim() ? "已立住" : "待补齐");
+  const archiveCompleteness = (file: NovelDocument) => {
+    const content = summarizeDocument(file.content);
+    return file.content.trim() ? Math.min(100, 54 + Math.min(46, content.length)) : 0;
+  };
+  const archiveRelation = (file: NovelDocument) => {
+    const priority = truthFileMetaMap[file.type].priority;
+    if (priority === "critical") {
+      return "MAX";
+    }
+    if (priority === "core") {
+      return "HIGH";
+    }
+    return "MID";
+  };
+
+  const createFirstChapterAndOpen = async () => {
+    const title = chapterTitle.trim() || "第1章";
+    const chapter = await api.createChapter(novel.id, { title });
+    const nextNovel = await api.getNovel(params.novelId);
+    setNovel(nextNovel);
+    setChapterMessage("首章已创建，正在进入章节控制页。");
+    router.push(`/novels/${novel.id}/chapters/${chapter.id}`);
+  };
 
   return (
-    <div className="space-y-6">
-      <section className="control-panel overflow-hidden rounded-[2.6rem]">
-        <div className="grid gap-8 px-8 py-8 lg:grid-cols-[1.2fr_0.8fr] xl:px-10 xl:py-10">
+    <div className="space-y-8">
+      <section className="station-hero station-frame overflow-hidden rounded-[2.8rem] px-8 py-8 xl:px-10 xl:py-10">
+        <div className="grid gap-8 lg:grid-cols-[1.18fr_0.82fr]">
           <div>
-            <p className="meta-kicker">Project Room</p>
-            <h1 className="panel-title mt-4 text-4xl font-semibold tracking-[-0.04em] lg:text-6xl">
+            <p className="meta-kicker text-[var(--ink-muted)]">Project Truth Zone</p>
+            <h1 className="mt-4 font-serif text-4xl font-semibold tracking-[-0.05em] text-[var(--foreground)] lg:text-6xl">
               {novel.title}
             </h1>
-            <p className="mt-3 inline-flex items-center rounded-full border border-[rgba(48,35,24,0.12)] bg-[rgba(255,252,247,0.78)] px-4 py-2 text-xs font-semibold tracking-[0.24em] uppercase text-[var(--ink-soft)]">
-              {novel.genre}
-            </p>
-            <p className="mt-5 max-w-3xl text-base leading-8 text-[var(--ink-soft)] lg:text-lg">
-              {novel.synopsis || "这本书还没有正式写下作品简介。先明确故事承诺、核心人物和当前章节推进，再开始追求更快的写作速度。"}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <StatusBadge tone="amber">{novel.genre}</StatusBadge>
+              <StatusBadge tone="cyan">{stageLabel}</StatusBadge>
+              <StatusBadge tone="paper">资料完成 {truthCompletion}%</StatusBadge>
+            </div>
+            <p className="mt-5 max-w-3xl text-base leading-8 text-[rgba(232,223,210,0.8)] lg:text-lg">
+              {novel.synopsis ||
+                "这本书还没有完整简介。先把项目总览、主题命题和人物压力立稳，再进入章节推进。"}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href={`/novels/${novel.id}/intake`}
-                className="inline-flex items-center gap-2 rounded-full border border-[rgba(48,35,24,0.12)] bg-[rgba(255,252,247,0.82)] px-6 py-3 text-sm font-semibold text-stone-900"
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[#0e1821] shadow-[0_16px_36px_rgba(207,141,53,0.24)]"
               >
-                启动访谈
+                <LibraryBig className="h-4 w-4" />
+                返回立项设置
               </Link>
               {novel.chapters[0] ? (
                 <Link
-                  href={`/novels/${novel.id}/chapters/${novel.chapters[0].id}`}
-                  className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(139,30,30,0.18)] hover:bg-[#741616]"
+                  href={`/novels/${novel.id}/chapters`}
+                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(125,152,168,0.2)] bg-[rgba(255,255,255,0.06)] px-6 py-3 text-sm font-semibold text-[var(--foreground)]"
                 >
-                  进入当前作战章节
+                  进入当前章节控制页
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(125,152,168,0.2)] bg-[rgba(255,255,255,0.06)] px-6 py-3 text-sm font-semibold text-[var(--foreground)]"
+                  onClick={() => void createFirstChapterAndOpen()}
+                >
+                  创建首章并进入章节控制页
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              )}
               <ExportButton novelId={novel.id} />
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-            <article className="rounded-[1.8rem] border border-[rgba(48,35,24,0.12)] bg-[rgba(255,252,247,0.8)] p-5">
-              <div className="flex items-center gap-3 text-[var(--accent)]">
-                <BookOpenText className="h-5 w-5" />
-                <p className="text-sm font-semibold">章节推进</p>
+          <div className="grid gap-4">
+            <StationPanel tone="paper" className="bg-[rgba(252,249,243,0.94)]">
+              <SectionHeading
+                kicker="Control Snapshot"
+                title="项目当前状态"
+                description="项目页的第一职责是判断这本书还能不能稳定推进。"
+              />
+              <div className="mt-5 space-y-3">
+                <BulletMetric label="章节总数" value={`${novel.chapters.length}`} />
+                <BulletMetric label="已写回章节" value={`${novel.completedChapterCount ?? 0}`} />
+                <BulletMetric label="人物池规模" value={`${novel.characters.length}`} />
+                <BulletMetric label="最近写回" value={formatStationTime(novel.latestDocumentUpdate)} />
               </div>
-              <p className="mt-3 font-serif text-3xl text-stone-950">{chapterCount}</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">当前已进入系统控制的章节数量。</p>
-            </article>
-            <article className="rounded-[1.8rem] border border-[rgba(48,35,24,0.12)] bg-[rgba(255,252,247,0.8)] p-5">
-              <div className="flex items-center gap-3 text-[var(--accent-soft)]">
-                <ScrollText className="h-5 w-5" />
-                <p className="text-sm font-semibold">路线材料</p>
+            </StationPanel>
+
+            <StationPanel tone="cyan" className="bg-[rgba(230,244,247,0.84)]">
+              <SectionHeading
+                kicker="Cross-Page Controls"
+                title="控制页入口"
+                description="项目页只是总控台，细节要分流到专门页面。"
+              />
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <Link
+                  href={`/novels/${novel.id}/memory`}
+                  className="rounded-[1.45rem] border border-[rgba(87,157,174,0.18)] bg-[rgba(255,255,255,0.56)] p-4"
+                >
+                  <div className="flex items-center gap-2 text-sm font-semibold text-[var(--paper-ink)]">
+                    <Orbit className="h-4 w-4 text-[var(--accent-cyan)]" />
+                    写前回顾
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
+                    统一查看人物、关系和动态状态切片。
+                  </p>
+                </Link>
+                <Link
+                  href={`/novels/${novel.id}/marathon`}
+                  className="rounded-[1.45rem] border border-[rgba(87,157,174,0.18)] bg-[rgba(255,255,255,0.56)] p-4"
+                >
+                  <div className="flex items-center gap-2 text-sm font-semibold text-[var(--paper-ink)]">
+                    <TimerReset className="h-4 w-4 text-[var(--accent-cyan)]" />
+                    自动续写台
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
+                    查看自动续写进度、阻塞原因和手动介入入口。
+                  </p>
+                </Link>
               </div>
-              <p className="mt-3 font-serif text-3xl text-stone-950">{outlineCount}</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">大纲版本不是附件，而是当前写作的导航层。</p>
-            </article>
-            <article className="rounded-[1.8rem] border border-[rgba(48,35,24,0.12)] bg-[rgba(255,252,247,0.8)] p-5">
-              <div className="flex items-center gap-3 text-[var(--accent)]">
-                <Users className="h-5 w-5" />
-                <p className="text-sm font-semibold">角色压力</p>
-              </div>
-              <p className="mt-3 font-serif text-3xl text-stone-950">{characterCount}</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">主角群越多，越需要在章节推进中保持回归和承压。</p>
-            </article>
-            <article className="rounded-[1.8rem] border border-[rgba(48,35,24,0.12)] bg-[rgba(255,252,247,0.8)] p-5">
-              <div className="flex items-center gap-3 text-[var(--accent-soft)]">
-                <FileText className="h-5 w-5" />
-                <p className="text-sm font-semibold">真相文件完成度</p>
-              </div>
-              <p className="mt-3 font-serif text-3xl text-stone-950">{completionRatio}</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">至少补齐项目总览、主题命题、动态状态三份后，控制台信息才开始有真正参考价值。</p>
-            </article>
+            </StationPanel>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <section className="space-y-6">
-        <article className="control-panel rounded-[2rem] p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="meta-kicker">Action Board</p>
-              <h2 className="panel-title mt-2 text-2xl font-semibold">本书当前控制焦点</h2>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--ink-soft)]">
-                当前建议优先检查章节路线是否完整、哪位核心人物太久未出现，以及下一章要承接哪条债务。
-              </p>
-            </div>
-            <div className="rounded-[1.4rem] bg-[rgba(255,252,247,0.7)] px-5 py-4 text-sm text-[var(--ink-soft)]">
-              <div className="flex items-center gap-2 font-medium text-stone-950">
-                <Radar className="h-4 w-4 text-[var(--accent)]" />
-                当前热度判断
+      <section className="grid gap-5 xl:grid-cols-4">
+        {[
+          {
+            label: "标准作品资料",
+            value: (
+              <div className="flex items-end gap-2">
+                <span>{filledTruthFiles}</span>
+                <span className="text-lg text-[rgba(232,223,210,0.42)]">/ {truthFiles.length}</span>
               </div>
-              <p className="mt-2 leading-6">如果本周新增章节不足 2 章，就优先补路线图和控制卡，而不是直接盲写。</p>
+            ),
+            detail: "10 份标准控制文件和 1 份日志共同构成真相源。",
+            tone: "amber" as const,
+            icon: <FilePenLine className="h-5 w-5" />,
+          },
+          {
+            label: "待同步差异",
+            value: `${syncDiffCount}`,
+            detail: "优先处理空白或过期的核心档案，避免章节推进脱轨。",
+            tone: "cyan" as const,
+            icon: <Sparkles className="h-5 w-5" />,
+          },
+          {
+            label: "高关联对象",
+            value: `${activeEntityCount}`,
+            detail: "章节、人物、路线材料共同构成当前活跃对象池。",
+            tone: "paper" as const,
+            icon: <BookOpenText className="h-5 w-5" />,
+          },
+          {
+            label: "全局真相稳定性",
+            value: `${stabilityScore}%`,
+            detail: novel.nextAction || "下一步先把核心档案补齐，再推进章节。",
+            tone: "paper" as const,
+            icon: <WandSparkles className="h-5 w-5" />,
+          },
+        ].map((item) => (
+          <div
+            key={item.label}
+            className="relative overflow-hidden rounded-[1.75rem] border border-[rgba(85,67,54,0.22)] bg-[rgba(23,28,34,0.82)] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.18)]"
+          >
+            <div className="absolute inset-0 opacity-[0.035] [background-image:radial-gradient(circle_at_top_right,rgba(255,183,125,0.6),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(108,211,247,0.45),transparent_28%)]" />
+            <div className="relative">
+              <div className="flex items-start justify-between gap-4">
+                <p className="label-font text-[11px] uppercase tracking-[0.22em] text-slate-500">{item.label}</p>
+                <div className={item.tone === "amber" ? "text-[var(--accent)]/70" : item.tone === "cyan" ? "text-[var(--accent-cyan)]/70" : "text-slate-500"}>
+                  {item.icon}
+                </div>
+              </div>
+              <div className="mt-4 font-serif text-4xl font-semibold tracking-[-0.05em] text-[var(--foreground)]">
+                {item.value}
+              </div>
+              <p className="mt-4 text-sm leading-6 text-[rgba(232,223,210,0.68)]">{item.detail}</p>
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)]">
+                <div
+                  className={item.tone === "amber" ? "h-full rounded-full bg-[var(--accent)]" : item.tone === "cyan" ? "h-full rounded-full bg-[var(--accent-cyan)]" : "h-full rounded-full bg-[rgba(255,183,125,0.72)]"}
+                  style={{
+                    width:
+                      item.label === "标准作品资料"
+                        ? `${truthCompletion}%`
+                        : item.label === "待同步差异"
+                          ? `${Math.max(12, 100 - syncDiffCount * 18)}%`
+                          : item.label === "高关联对象"
+                            ? `${Math.min(100, 32 + activeEntityCount * 6)}%`
+                            : `${stabilityScore}%`,
+                  }}
+                />
+              </div>
             </div>
           </div>
-        </article>
+        ))}
+      </section>
 
-        <article className="control-panel rounded-[2rem] p-8">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <p className="meta-kicker">Chapter Operations</p>
-              <h2 className="panel-title text-2xl font-semibold">章节推进台</h2>
-              <p className="text-sm text-[var(--ink-soft)]">先明确下一章要推进什么，再点进正文作战室。</p>
+      <section className="grid gap-8 xl:grid-cols-[1.16fr_0.84fr]">
+        <div className="space-y-12">
+          {archiveGroups.map((group) => (
+            <section key={group.title}>
+              <div className="mb-6 flex items-center gap-4">
+                <h2 className="font-serif text-[2rem] font-semibold tracking-[-0.04em] text-[var(--foreground)]">
+                  {group.title}
+                  <span className="ml-3 label-font text-xs uppercase tracking-[0.28em] text-slate-500">
+                    {group.english}
+                  </span>
+                </h2>
+                <div className="h-px flex-1 bg-[rgba(85,67,54,0.22)]" />
+              </div>
+
+              <div className={`grid gap-5 ${group.files.length >= 4 ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+                {group.files.map((file) => {
+                  const meta = truthFileMetaMap[file.type];
+                  const active = activeDocument?.id === file.id;
+                  const filled = Boolean(file.content.trim());
+
+                  return (
+                    <button
+                      key={file.id}
+                      type="button"
+                      className={`group rounded-[1.65rem] border p-6 text-left transition ${
+                        active
+                          ? "border-[rgba(255,183,125,0.3)] bg-[rgba(37,42,49,0.96)] shadow-[0_20px_50px_rgba(0,0,0,0.22)]"
+                          : filled
+                            ? "border-[rgba(85,67,54,0.16)] bg-[rgba(23,28,34,0.88)] hover:border-[rgba(255,183,125,0.24)] hover:bg-[rgba(27,32,38,0.96)]"
+                            : "border-[rgba(168,86,78,0.24)] bg-[rgba(35,24,25,0.72)] hover:border-[rgba(255,180,171,0.36)]"
+                      }`}
+                      onClick={() => {
+                        setActiveDocumentId(file.id);
+                        setDocumentDraft(file.content);
+                        setDocumentMessage("");
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="label-font text-[10px] tracking-[0.28em] text-[var(--accent)]/72">
+                            ARCHIVE #{meta.code}
+                          </div>
+                          <h3 className="mt-2 font-serif text-[1.45rem] font-semibold tracking-[-0.04em] text-[var(--foreground)]">
+                            {meta.shortTitle}
+                          </h3>
+                        </div>
+                        <div className="flex items-center gap-2 pt-1">
+                          <span
+                            className={`h-2.5 w-2.5 rounded-full ${
+                              filled
+                                ? meta.tone === "cyan"
+                                  ? "bg-[var(--accent-cyan)] shadow-[0_0_10px_rgba(108,211,247,0.55)]"
+                                  : meta.tone === "amber"
+                                    ? "bg-[var(--accent)] shadow-[0_0_10px_rgba(255,183,125,0.45)]"
+                                    : "bg-[rgba(201,198,194,0.95)]"
+                                : "bg-[var(--accent-danger)] shadow-[0_0_10px_rgba(255,180,171,0.45)]"
+                            }`}
+                          />
+                          <span className={`label-font text-[10px] tracking-[0.22em] ${filled ? "text-slate-400" : "text-[var(--accent-danger)]"}`}>
+                            {filled ? (active ? "编辑中" : documentStatus(file)) : "待补齐"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="mt-4 text-sm leading-7 text-[rgba(232,223,210,0.68)]">{meta.description}</p>
+                      <p className="mt-3 line-clamp-2 text-sm leading-7 text-[rgba(232,223,210,0.9)]">
+                        {summarizeDocument(file.content)}
+                      </p>
+
+                      <div className="mt-6 grid grid-cols-2 gap-3">
+                        <div className="rounded-[1.15rem] bg-[rgba(10,15,20,0.72)] p-3">
+                          <div className="label-font text-[10px] uppercase tracking-[0.2em] text-slate-500">完整度</div>
+                          <div className="mt-1 text-sm font-semibold text-[var(--foreground)]">{archiveCompleteness(file)}%</div>
+                        </div>
+                        <div className="rounded-[1.15rem] bg-[rgba(10,15,20,0.72)] p-3">
+                          <div className="label-font text-[10px] uppercase tracking-[0.2em] text-slate-500">关联度</div>
+                          <div className={`mt-1 text-sm font-semibold ${meta.priority === "critical" ? "text-[var(--accent-cyan)]" : "text-[var(--foreground)]"}`}>
+                            {archiveRelation(file)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 flex items-center justify-between text-[11px] text-slate-500">
+                        <span>{formatStationTime(file.updatedAt)}</span>
+                        <span className="label-font tracking-[0.2em] text-[var(--accent)] transition group-hover:translate-x-1">
+                          OPEN
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <div className="space-y-6">
+          <StationPanel className="control-panel sticky top-[104px] rounded-[2.2rem] p-6">
+            <SectionHeading
+              kicker="Truth Editor"
+              title={activeDocument?.title ?? "作品资料编辑台"}
+              description="当前编辑对象属于作品资料，会直接影响章节控制页、写前回顾和自动续写台。"
+              action={
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[#0e1821]"
+                  onClick={() => void saveDocument()}
+                >
+                  <Save className="h-4 w-4" />
+                  保存资料
+                </button>
+              }
+            />
+            {activeDocument ? (
+              <>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <StatusBadge tone={truthFileMetaMap[activeDocument.type].tone}>档案 #{truthFileMetaMap[activeDocument.type].code}</StatusBadge>
+                  <StatusBadge tone={activeDocument.content.trim() ? truthFileMetaMap[activeDocument.type].tone : "danger"}>
+                    {documentStatus(activeDocument)}
+                  </StatusBadge>
+                </div>
+                <textarea
+                  className="station-input mt-5 min-h-[25rem]"
+                  value={documentDraft}
+                  onChange={(event) => setDocumentDraft(event.target.value)}
+                />
+              </>
+            ) : null}
+            {documentMessage ? <p className="mt-3 text-sm text-[var(--accent-strong)]">{documentMessage}</p> : null}
+          </StationPanel>
+
+          <StationPanel className="control-panel rounded-[2.2rem] p-6">
+            <SectionHeading
+              kicker="Chapter Operations"
+              title="章节推进台"
+              description="先确定章节任务，再进入章节控制页处理正文与写回闭环。"
+              action={
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    className="station-input max-w-44"
+                    value={chapterTitle}
+                    onChange={(event) => setChapterTitle(event.target.value)}
+                    placeholder="输入章节名"
+                  />
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[#0e1821]"
+                    onClick={async () => {
+                      await api.createChapter(novel.id, { title: chapterTitle.trim() || `第${novel.chapters.length + 1}章` });
+                      const result = await api.getNovel(params.novelId);
+                      setNovel(result);
+                      setChapterMessage("章节已创建，可以直接进入章节控制页。");
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                    添加章节
+                  </button>
+                </div>
+              }
+            />
+            <div className="mt-5">
+              <ChapterList novelId={novel.id} chapters={novel.chapters} />
+              {chapterMessage ? <p className="mt-4 text-sm text-[var(--accent-strong)]">{chapterMessage}</p> : null}
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                className="rounded-full border border-[rgba(48,35,24,0.16)] bg-[rgba(255,252,247,0.82)] px-4 py-2 text-sm"
-                value={chapterTitle}
-                onChange={(event) => setChapterTitle(event.target.value)}
-              />
+          </StationPanel>
+
+          <StationPanel tone="cyan" className="bg-[rgba(230,244,247,0.84)]">
+            <SectionHeading
+              kicker="Pressure Monitor"
+              title="人物压力与伏笔窗口"
+              description="作品资料页要优先暴露该回归的人物、该回收的线索和该处理的债务。"
+            />
+            <div className="mt-5 space-y-3">
+              {characterPressure.map((item) => (
+                <div
+                  key={item.name}
+                  className="rounded-[1.4rem] border border-[rgba(87,157,174,0.16)] bg-[rgba(255,255,255,0.56)] p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--paper-ink)]">{item.name}</p>
+                      <p className="text-sm text-[var(--ink-soft)]">{item.role}</p>
+                    </div>
+                    <StatusBadge tone={item.tone}>{item.pressure}</StatusBadge>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">{item.cue}</p>
+                </div>
+              ))}
+              {foreshadowWindows.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-[1.4rem] border border-[rgba(87,157,174,0.16)] bg-[rgba(255,255,255,0.56)] p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-[var(--paper-ink)]">{item.title}</p>
+                    <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">{item.note}</p>
+                </div>
+              ))}
+            </div>
+          </StationPanel>
+
+          <StationPanel className="control-panel rounded-[2.2rem] p-6">
+            <SectionHeading
+              kicker="Route Updates"
+              title="新增路线材料"
+              description="路线材料是当前阶段的导航层，不是生成后被遗忘的附件。"
+            />
+            <textarea
+              className="station-input mt-5 min-h-40"
+              placeholder="补一段阶段路线、剧情节点或下一章推进判断..."
+              value={outlineDraft}
+              onChange={(event) => setOutlineDraft(event.target.value)}
+            />
+            <div className="mt-4 flex justify-end">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white"
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[#0e1821]"
                 onClick={async () => {
-                  await api.createChapter(novel.id, { title: chapterTitle });
+                  if (!outlineDraft.trim()) {
+                    return;
+                  }
+
+                  await api.createOutline(novel.id, { content: outlineDraft });
                   const result = await api.getNovel(params.novelId);
                   setNovel(result);
+                  setOutlineDraft("");
                 }}
               >
                 <Plus className="h-4 w-4" />
-                添加章节
+                保存为路线材料
               </button>
             </div>
-          </div>
-          <ChapterList novelId={novel.id} chapters={novel.chapters} />
-        </article>
-      </section>
+          </StationPanel>
 
-      <section className="space-y-6">
-        <article className="control-panel rounded-[2rem] p-6">
-          <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-            <div>
-              <p className="meta-kicker">Truth Files</p>
-              <h2 className="panel-title text-2xl font-semibold">项目真相区</h2>
-              <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">
-                这些文件是整本书的真相源。现在已经支持真实读取与保存，下一步不再是“多写按钮”，而是让作者稳定维护这些核心文件。
-              </p>
-          <div className="mt-5 grid gap-3">
-            {truthFiles.map((file) => (
-              <button
-                    key={file.id}
-                    type="button"
-                    className={`flex items-start justify-between gap-4 rounded-[1.5rem] border px-4 py-4 text-left transition ${
-                      activeDocument?.id === file.id
-                        ? "border-[rgba(139,30,30,0.28)] bg-[rgba(255,247,244,0.88)]"
-                        : "border-[rgba(48,35,24,0.1)] bg-[rgba(255,252,247,0.72)]"
-                    }`}
-                    onClick={() => {
-                      setActiveDocumentId(file.id);
-                      setDocumentDraft(file.content);
-                      setDocumentMessage("");
-                    }}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(139,30,30,0.08)] text-[var(--accent)]">
-                        <FileText className="h-4 w-4" />
-                      </div>
-                    <div>
-                      <p className="text-xs font-semibold tracking-[0.22em] uppercase text-[var(--ink-soft)]">{documentCode(file.type)}</p>
-                      <p className="mt-1 font-medium text-stone-950">{file.title}</p>
-                      <p className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase ${
-                        file.content.trim().length > 0
-                          ? "bg-[rgba(46,125,50,0.12)] text-[#2f6b2f]"
-                          : "bg-[rgba(139,30,30,0.08)] text-[var(--accent)]"
-                      }`}>
-                        {documentStatus(file.content)}
-                      </p>
-                      <p className="mt-1 text-sm leading-6 text-[var(--ink-soft)]">
-                        {file.content ? `${file.content.slice(0, 42)}...` : "当前还没有写入内容，建议优先补齐这一份真相文件。"}
-                      </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-semibold tracking-[0.18em] uppercase text-[var(--ink-soft)]">
-                      {formatTime(file.updatedAt).slice(5, 16)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-[1.4rem] bg-[rgba(255,252,247,0.72)] px-4 py-3 text-sm text-[var(--ink-soft)]">
-              <div className="flex items-center gap-2 font-medium text-stone-950">
-                <Sparkles className="h-4 w-4 text-[var(--accent)]" />
-                下一步建议
-              </div>
-              <p className="mt-2 leading-6">优先补齐项目总览、人物圣经与动态状态三份核心文件，让章节推进建立在稳定真相源之上。</p>
-            </div>
-          </div>
-        </article>
-
-        {activeDocument ? (
-          <article className="control-panel rounded-[2rem] p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="meta-kicker">Truth File Workspace</p>
-                <h2 className="panel-title text-2xl font-semibold">{activeDocument.title}</h2>
-                <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">这里是标准控制文件工作区。当前前端已经接入真实文档数据，可直接保存内容。</p>
-                <p className="mt-2 text-xs font-semibold tracking-[0.2em] uppercase text-[var(--ink-soft)]">
-                  最后更新：{formatTime(activeDocument.updatedAt)}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white"
-                onClick={async () => {
-                  const updated = await api.updateNovelDocument(novel.id, activeDocument.id, {
-                    content: documentDraft,
-                  });
-                  setNovel((current) =>
-                    current
-                      ? {
-                          ...current,
-                          documents: current.documents.map((item) =>
-                            item.id === updated.id ? updated : item,
-                          ),
-                        }
-                      : current,
-                  );
-                  setDocumentMessage("已保存到项目真相文件");
-                }}
-              >
-                保存文档
-              </button>
-            </div>
-            <textarea
-              className="mt-5 min-h-48 w-full rounded-[1.6rem] border border-[rgba(48,35,24,0.16)] bg-[rgba(255,252,247,0.78)] px-4 py-4 leading-7"
-              value={documentDraft}
-              onChange={(event) => setDocumentDraft(event.target.value)}
-            />
-            {documentMessage ? (
-              <p className="mt-4 inline-flex items-center rounded-full bg-[rgba(46,125,50,0.12)] px-4 py-2 text-sm font-medium text-[#2f6b2f]">
-                {documentMessage}
-              </p>
-            ) : null}
-          </article>
-        ) : null}
-
-        <OutlinePanel outlines={novel.outlines} />
-
-        <article className="control-panel rounded-[2rem] p-6">
-          <p className="meta-kicker">Manual Outline</p>
-          <h2 className="panel-title text-2xl font-semibold">补写一版人工路线图</h2>
-          <textarea
-            className="mt-4 min-h-40 w-full rounded-[1.6rem] border border-[rgba(48,35,24,0.16)] bg-[rgba(255,252,247,0.78)] px-4 py-3"
-            placeholder="把你自己的主线拆解写在这里。"
-            value={outlineDraft}
-            onChange={(event) => setOutlineDraft(event.target.value)}
-          />
-          <button
-            type="button"
-            className="mt-4 rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-medium text-white"
-            onClick={async () => {
-              await api.createOutline(novel.id, { content: outlineDraft });
-              setOutlineDraft("");
-              const result = await api.getNovel(params.novelId);
-              setNovel(result);
-            }}
-          >
-            保存大纲版本
-          </button>
-        </article>
-
-        <article className="control-panel rounded-[2rem] p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="meta-kicker">Cast Pressure</p>
-              <h2 className="panel-title text-2xl font-semibold">角色压力板</h2>
-              <p className="text-sm text-[var(--ink-soft)]">角色不是资料卡片，而是后续章节必须持续承压的行动对象。</p>
-            </div>
-            <Link
-              href={`/novels/${novel.id}/characters`}
-              className="text-sm font-medium text-stone-900 underline underline-offset-4"
-            >
-              进入角色页
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {novel.characters.slice(0, 3).map((character) => (
-              <CharacterCard key={character.id} character={character} />
-            ))}
-          </div>
-        </article>
-      </section>
+          <OutlinePanel outlines={novel.outlines} />
+        </div>
       </section>
     </div>
   );

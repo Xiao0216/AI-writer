@@ -1,4 +1,6 @@
 import Image from "next/image";
+
+import { SectionHeading, StationPanel, StatusBadge } from "@/components/control-station/station-kit";
 import type { MembershipStatus, PaymentOrder, PaymentPlan } from "@/lib/types";
 
 function formatPrice(priceFen: number) {
@@ -40,69 +42,108 @@ export function MembershipCard({
   onRefreshOrder: () => Promise<void>;
 }) {
   return (
-    <section className="control-panel rounded-[2rem] p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="meta-kicker">Current Plan</p>
-          <h2 className="panel-title mt-2 text-3xl font-semibold">
-            {membership.membershipType === "MEMBER" ? "会员版" : "免费版"}
-          </h2>
-          <div className="mt-6 grid gap-3 text-sm text-[var(--ink-soft)]">
-            <p>今日已用：{membership.usedToday}</p>
-            <p>今日剩余：{membership.remainingToday ?? "无限制"}</p>
-            <p>到期时间：{membership.membershipExpireAt ?? "未开通"}</p>
+    <div className="space-y-6">
+      <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+        <StationPanel className="rounded-[2.2rem] border-[rgba(85,67,54,0.18)] bg-[rgba(23,28,34,0.88)] p-6 text-[var(--foreground)]">
+          <SectionHeading
+            kicker="Current Capability"
+            title={membership.membershipType === "MEMBER" ? "会员版" : "免费版"}
+            description="会员层级显示的是你现在拥有多少控制力，而不是今天还能生成几次。"
+          />
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <div className="rounded-[1.45rem] border border-[rgba(85,67,54,0.16)] bg-[rgba(10,15,20,0.72)] p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">今日已用</p>
+              <p className="mt-2 font-serif text-3xl text-[var(--foreground)]">{membership.usedToday}</p>
+            </div>
+            <div className="rounded-[1.45rem] border border-[rgba(85,67,54,0.16)] bg-[rgba(10,15,20,0.72)] p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">今日剩余</p>
+              <p className="mt-2 font-serif text-3xl text-[var(--foreground)]">
+                {membership.remainingToday ?? "∞"}
+              </p>
+            </div>
+            <div className="rounded-[1.45rem] border border-[rgba(85,67,54,0.16)] bg-[rgba(10,15,20,0.72)] p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">到期时间</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--foreground)]">
+                {membership.membershipExpireAt ?? "未开通"}
+              </p>
+            </div>
           </div>
-        </div>
-        {plan ? (
-          <div className="min-w-56 rounded-[1.5rem] border border-[rgba(139,30,30,0.18)] bg-[rgba(255,247,244,0.88)] p-5 text-sm text-[var(--ink-soft)]">
-            <p className="font-medium text-stone-950">{plan.title}</p>
-            <p className="mt-2 text-2xl font-semibold text-stone-950">
-              {formatPrice(plan.priceFen)}
-            </p>
-            <p className="mt-1 text-xs uppercase tracking-[0.24em] text-[var(--ink-soft)]">
-              {plan.durationMonths} Month
-            </p>
-            <p className="mt-3 leading-6">{plan.description}</p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <StatusBadge tone={membership.membershipType === "MEMBER" ? "amber" : "paper"}>
+              {membership.membershipType === "MEMBER" ? "控制能力已开通" : "当前为体验层"}
+            </StatusBadge>
+            <StatusBadge tone="cyan">长篇控制优先</StatusBadge>
+            <StatusBadge tone="paper">写回同步可见</StatusBadge>
           </div>
-        ) : null}
-      </div>
+        </StationPanel>
+
+        <StationPanel className="rounded-[2.2rem] border-[rgba(255,183,125,0.3)] bg-[rgba(27,32,38,0.96)] p-6 text-[var(--foreground)] shadow-[0_24px_60px_rgba(207,141,53,0.08)]">
+          <SectionHeading
+            kicker="Plan Offer"
+            title={plan?.title ?? "专业作者版"}
+            description="用户付费买的是完整控制能力，而不是更多段落输出。"
+          />
+          <div className="mt-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-serif text-4xl text-[var(--foreground)]">
+                {plan ? formatPrice(plan.priceFen) : "待配置"}
+              </p>
+              <p className="mt-2 text-sm text-[rgba(232,223,210,0.62)]">
+                {plan ? `${plan.durationMonths} 个月` : "支付计划未配置"}
+              </p>
+            </div>
+            <StatusBadge tone="amber">{plan?.code ?? "PRO"}</StatusBadge>
+          </div>
+          <p className="mt-4 text-sm leading-6 text-[rgba(232,223,210,0.72)]">
+            {plan?.description ?? "当前后端未返回计划描述。"}
+          </p>
+          <div className="mt-5 grid gap-3">
+            {["全量作品资料维护", "跨卷因果与伏笔回收提醒", "章节完成后动态写回闭环"].map((item) => (
+              <div key={item} className="rounded-[1.2rem] border border-[rgba(85,67,54,0.18)] bg-[rgba(10,15,20,0.66)] px-4 py-3 text-sm text-[var(--foreground)]">
+                {item}
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-strong)] px-4 py-3 text-sm font-semibold text-[#2f1500] disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => void onUpgrade()}
+              disabled={pending || plan?.configured === false}
+            >
+              {pending ? "处理中..." : "开通控制能力"}
+            </button>
+            {order ? (
+              <button
+                type="button"
+                className="rounded-full border border-[rgba(85,67,54,0.24)] bg-[rgba(10,15,20,0.7)] px-4 py-3 text-sm font-medium text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => void onRefreshOrder()}
+                disabled={pending}
+              >
+                刷新支付状态
+              </button>
+            ) : null}
+          </div>
+        </StationPanel>
+      </section>
 
       {message ? (
-        <div className="mt-6 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {message}
-        </div>
+        <StationPanel className="rounded-[1.8rem] border-[rgba(85,67,54,0.18)] bg-[rgba(23,28,34,0.88)]">
+          <p className="text-sm text-[var(--foreground)]">{message}</p>
+        </StationPanel>
       ) : null}
 
       {plan?.configured === false ? (
-        <div className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          后端还没有填入微信支付商户参数，暂时无法创建真实订单。
-        </div>
+        <StationPanel tone="danger">
+          <p className="text-sm text-[var(--paper-ink)]">
+            后端还没有填入微信支付商户参数，暂时无法创建真实订单。
+          </p>
+        </StationPanel>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap gap-3">
-        <button
-          type="button"
-          className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-          onClick={() => void onUpgrade()}
-          disabled={pending || plan?.configured === false}
-        >
-          {pending ? "处理中..." : "立即开通月卡"}
-        </button>
-        {order ? (
-          <button
-            type="button"
-            className="rounded-full border border-[rgba(48,35,24,0.16)] bg-[rgba(255,252,247,0.82)] px-4 py-3 text-sm font-medium text-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={() => void onRefreshOrder()}
-            disabled={pending}
-          >
-            刷新支付状态
-          </button>
-        ) : null}
-      </div>
-
       {order ? (
-        <div className="mt-8 grid gap-6 rounded-[1.75rem] border border-[rgba(48,35,24,0.1)] bg-[rgba(255,252,247,0.72)] p-6 md:grid-cols-[280px,1fr]">
-          <div className="rounded-[1.5rem] bg-white p-4">
+        <section className="grid gap-6 xl:grid-cols-[280px,1fr]">
+          <StationPanel className="rounded-[2rem] border-[rgba(85,67,54,0.18)] bg-[rgba(23,28,34,0.88)] p-4">
             {qrCodeUrl ? (
               <Image
                 src={qrCodeUrl}
@@ -113,26 +154,27 @@ export function MembershipCard({
                 className="h-auto w-full rounded-xl"
               />
             ) : (
-              <div className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-stone-300 text-sm text-stone-500">
+              <div className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-[rgba(85,67,54,0.24)] text-sm text-slate-500">
                 二维码生成中...
               </div>
             )}
-          </div>
-          <div className="space-y-3 text-sm text-[var(--ink-soft)]">
-            <p className="meta-kicker">WeChat Pay</p>
-            <h3 className="panel-title text-2xl font-semibold text-stone-950">
-              扫码完成支付
-            </h3>
-            <p>订单状态：{formatStatus(order.status)}</p>
-            <p>订单号：{order.outTradeNo}</p>
-            <p>订单金额：{formatPrice(order.amountFen)}</p>
-            <p>失效时间：{order.expireAt ?? "15 分钟内有效"}</p>
-            <p className="leading-6 text-stone-600">
-              打开微信扫一扫完成支付。支付成功后本页会自动轮询，也可以手动刷新状态。
-            </p>
-          </div>
-        </div>
+          </StationPanel>
+
+          <StationPanel className="rounded-[2rem] border-[rgba(85,67,54,0.18)] bg-[rgba(23,28,34,0.88)] p-6 text-[var(--foreground)]">
+            <SectionHeading
+              kicker="WeChat Pay"
+              title="扫码完成开通"
+              description="支付成功后本页会自动轮询，也可以手动刷新状态。"
+            />
+            <div className="mt-5 grid gap-3 text-sm text-[var(--foreground)]">
+              <p>订单状态：{formatStatus(order.status)}</p>
+              <p>订单号：{order.outTradeNo}</p>
+              <p>订单金额：{formatPrice(order.amountFen)}</p>
+              <p>失效时间：{order.expireAt ?? "15 分钟内有效"}</p>
+            </div>
+          </StationPanel>
+        </section>
       ) : null}
-    </section>
+    </div>
   );
 }
